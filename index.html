@@ -242,37 +242,9 @@
       margin: 0;
       width: auto;
     }
-	.hardcore-challenge {
-	  background-color: #ffebee !important;
-	  border: 2px solid #f44336 !important;
-	}
-
-	body.dark-mode .hardcore-challenge {
-	  background-color: #4a1a1a !important;
-	  border-color: #f44336 !important;
-	}
-
-	#hardcoreFlag {
-	  background-color: #f44336;
-	  color: white;
-	  padding: 5px 10px;
-	  border-radius: 3px;
-	  font-weight: bold;
-	  margin-left: 10px;
-	  cursor: pointer;
-	}
-
-	#hardcoreFlag:hover {
-	  background-color: #d32f2f;
-	}
-
-	#hardcoreFlag.disabled {
-	  background-color: #666;
-	  text-decoration: line-through;
-	}
   </style>
 
-  <!-- Firebase libraries -->
+  <!-- Firebase libraries just adding this to force an update-->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
@@ -316,10 +288,6 @@
       Starting Score (optional, default 0):
       <input type="number" id="startingScore" min="0" value="0" />
     </label>
-	<label>
-	  <input type="checkbox" id="hardcoreMode" />
-	  Enable Hardcore Mode (one random challenge resets score to 0 if failed)
-	</label>
   </section>
 
   <button id="startGameBtn">Start Game</button>
@@ -379,9 +347,6 @@
   let currentPlayerIndex = 0;
   let lastActionsStack = []; // undo stack
   let gameHistory = [];
-  let hardcoreMode = false;
-  let hardcoreChallengeIndex = -1;
-  let hardcoreDisabled = false;
 
   // UI Elements
   const playerButtonsDiv = document.getElementById("playerButtons");
@@ -483,30 +448,6 @@
     
     updateCategorySummary();
   }
-
-	function selectHardcoreChallenge() {
-	  if (!hardcoreMode || currentGameChallenges.length <= 2) {
-		hardcoreChallengeIndex = -1;
-		return;
-	  }
-	  
-	  // Select random challenge that's not first or last
-	  const validIndices = [];
-	  for (let i = 1; i < currentGameChallenges.length - 1; i++) {
-		validIndices.push(i);
-	  }
-	  
-	  if (validIndices.length > 0) {
-		hardcoreChallengeIndex = validIndices[Math.floor(Math.random() * validIndices.length)];
-	  } else {
-		hardcoreChallengeIndex = -1;
-	  }
-	}
-
-	function toggleHardcoreFlag() {
-	  hardcoreDisabled = !hardcoreDisabled;
-	  updateTurnDisplay();
-	}
 
   function updateCategorySummary() {
     const total = Object.values(categoryRequirements).reduce((sum, val) => sum + val, 0);
@@ -690,9 +631,6 @@
     currentPlayerIndex = 0;
     lastActionsStack = [];
     gameHistory = [];
-	// Set hardcore mode
-	hardcoreMode = document.getElementById("hardcoreMode").checked;
-	hardcoreDisabled = false;
 
     // Filter selected players and reset scores
     players = players.map(p => {
@@ -750,8 +688,6 @@
     
     // Reconstruct: scoring first, shuffled middle, finishing last
     currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
-	// Select hardcore challenge if enabled
-	selectHardcoreChallenge();
 
     // Update UI
     updatePlayerButtons();
@@ -762,51 +698,26 @@
   }
 
   // Display whose turn it is and current challenge
-	  function updateTurnDisplay() {
-	  if (!gameStarted) {
-		currentTurnInfo.textContent = "";
-		currentChallengeText.textContent = "";
-		return;
-	  }
-	  if (currentChallengeIndex >= currentGameChallenges.length) {
-		// Game over
-		endGame();
-		return;
-	  }
-	  const player = players[currentPlayerIndex];
-	  const challenge = currentGameChallenges[currentChallengeIndex];
-	  currentTurnInfo.textContent = `Current Turn: ${player.name}`;
-	  
-	  let challengeText = `Challenge: "${challenge.text}" (${challenge.category})`;
-	  
-	  // Add hardcore flag if this is the hardcore challenge
-	  if (hardcoreMode && currentChallengeIndex === hardcoreChallengeIndex) {
-		// Clear existing content and add text
-		currentChallengeText.textContent = challengeText;
-		
-		// Create and add hardcore flag element
-		const hardcoreFlag = document.createElement("span");
-		hardcoreFlag.id = "hardcoreFlag";
-		hardcoreFlag.onclick = toggleHardcoreFlag;
-		hardcoreFlag.textContent = hardcoreDisabled ? '🔥 HARDCORE (DISABLED)' : '🔥 HARDCORE';
-		if (hardcoreDisabled) {
-		  hardcoreFlag.classList.add("disabled");
-		}
-		
-		currentChallengeText.appendChild(hardcoreFlag);
-		
-		// Add styling to game area
-		gameArea.classList.add("hardcore-challenge");
-	  } else {
-		currentChallengeText.textContent = challengeText;
-		gameArea.classList.remove("hardcore-challenge");
-	  }
-	  
-	  scoreInput.value = "";
-	  scoreInput.focus();
-	  updatePlayerButtons();
-	  updateScoreboard();
-	}
+  function updateTurnDisplay() {
+    if (!gameStarted) {
+      currentTurnInfo.textContent = "";
+      currentChallengeText.textContent = "";
+      return;
+    }
+    if (currentChallengeIndex >= currentGameChallenges.length) {
+      // Game over
+      endGame();
+      return;
+    }
+    const player = players[currentPlayerIndex];
+    const challenge = currentGameChallenges[currentChallengeIndex];
+    currentTurnInfo.textContent = `Current Turn: ${player.name}`;
+    currentChallengeText.textContent = `Challenge: "${challenge.text}" (${challenge.description})`;
+    scoreInput.value = "";
+    scoreInput.focus();
+    updatePlayerButtons();
+    updateScoreboard();
+  }
 
   // Handle submitting score for current player/challenge
   function submitScore() {
@@ -840,47 +751,34 @@
 
   // Handle fail challenge (half points rounded up, min 1, unless already 0)
   function failChallenge() {
-  if (!gameStarted) return;
-  const player = players[currentPlayerIndex];
-  const oldScore = player.score;
-  let newScore;
-  
-  // Check if this is hardcore challenge and not disabled
-  const isHardcore = hardcoreMode && currentChallengeIndex === hardcoreChallengeIndex && !hardcoreDisabled;
-  
-  if (isHardcore) {
-    newScore = 0; // Reset to 0 for hardcore failure
-  } else {
+    if (!gameStarted) return;
+    const player = players[currentPlayerIndex];
+    const oldScore = player.score;
+    let newScore;
+    
     if (oldScore === 0) {
       newScore = 0; // Stay at 0 if already 0
     } else {
       newScore = Math.ceil(oldScore / 2);
       if (newScore < 1) newScore = 1; // Minimum score is 1 unless already 0
     }
-  }
-  
-  player.score = newScore;
+    
+    player.score = newScore;
 
-  lastActionsStack.push({
-    type: "fail",
-    playerIndex: currentPlayerIndex,
-    oldScore: oldScore,
-    newScore: newScore,
-    challengeIndex: currentChallengeIndex,
-    playerName: player.name,
-    wasHardcore: isHardcore
-  });
+    lastActionsStack.push({
+      type: "fail",
+      playerIndex: currentPlayerIndex,
+      oldScore: oldScore,
+      newScore: newScore,
+      challengeIndex: currentChallengeIndex,
+      playerName: player.name
+    });
 
-  const failureText = isHardcore ? 
-    `${player.name} FAILED HARDCORE challenge "${currentGameChallenges[currentChallengeIndex].text}" and score was RESET TO 0!` :
-    `${player.name} FAILED challenge "${currentGameChallenges[currentChallengeIndex].text}" and score was ${oldScore === 0 ? 'kept at 0' : 'halved to ' + newScore}`;
-  
-  gameHistory.push(failureText);
-  saveHistoryToFirebase();
-  renderHistory();
+    gameHistory.push(`${player.name} FAILED challenge "${currentGameChallenges[currentChallengeIndex].text}" and score was ${oldScore === 0 ? 'kept at 0' : 'halved to ' + newScore}`);
+    saveHistoryToFirebase();
+    renderHistory();
 
-  nextTurn();
-}
+    nextTurn();
   }
 
   // Undo last action
@@ -896,11 +794,6 @@
       currentChallengeIndex = last.challengeIndex;
       currentPlayerIndex = last.playerIndex;
     }
-	
-	// Reset hardcore disabled flag if needed
-	if (last.wasHardcore) {
-	  hardcoreDisabled = false;
-}
 
     // Remove last history entry
     if (gameHistory.length > 0) gameHistory.pop();
