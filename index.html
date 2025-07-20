@@ -288,15 +288,29 @@
       Starting Score (optional, default 0):
 	<input type="number" inputmode="numeric" id="startingScore" min="0" value="0" />
     </label>
-	  <label>
-		<input type="checkbox" id="hardcoreMode" />
-		Enable Hardcore Mode
-	  </label>
-	  <br />
-	  <label>
-		<input type="checkbox" id="jokerMode" />
-		Enable Joker Mode
-	  </label>
+	<details id="specialRulesPanel">
+	  <summary style="cursor: pointer; font-weight: bold;">🎲 Special Rules</summary>
+	  <div style="margin-top: 10px; padding-left: 10px;">
+		<label>
+		  <input type="checkbox" id="hardcoreMode" />
+		  Enable Hardcore Mode (🔥 fail = reset score)
+		</label><br />
+		<label>
+		  <input type="checkbox" id="jokerMode" />
+		  Enable Joker Mode (🃏 double or ¾ penalty)
+		</label><br />
+		
+		<!-- 🎯 Placeholder for future power-ups -->
+		<label>
+		  <input type="checkbox" id="doubleTroubleMode" />
+		  Double Trouble (💥 Max score = double it)
+		</label><br />
+		<label>
+		  <input type="checkbox" id="streakBonusMode" />
+		  Streak Bonus (🔥 3 successful turns = +20 points)
+		</label><br />
+	  </div>
+	</details>
   </section>
 
   <button id="startGameBtn">Start Game</button>
@@ -353,6 +367,7 @@
   let gameStarted = false;
   let hardcoreChallengeIndex = null;
   let jokerChallengeIndex = null;
+  let doubleTroubleEnabled = false;
   let categoryRequirements = {}; // tracks how many challenges per category
 
   let currentGameChallenges = []; // challenges selected for this game (unique, random)
@@ -720,6 +735,10 @@
 
 	const useHardcore = document.getElementById("hardcoreMode").checked;
 	const useJoker = document.getElementById("jokerMode").checked;
+	const useDoubleTrouble = document.getElementById("doubleTroubleMode").checked;
+	doubleTroubleEnabled = useDoubleTrouble;
+	const useStreakBonus = document.getElementById("streakBonusMode").checked;
+
 
 	// Get eligible challenge indexes (not first or last)
 	const eligibleIndexes = currentGameChallenges.map((_, i) => i).filter(i => i !== 0 && i !== currentGameChallenges.length - 1);
@@ -790,7 +809,24 @@
 	if (currentChallengeIndex === jokerChallengeIndex) {
 	  player.score += scoreVal * 2; // double score for this turn
 	} else {
-	  player.score += scoreVal;
+	  let finalScore = scoreVal;
+
+		// Check for Joker Mode (already handled)
+		if (currentChallengeIndex === jokerChallengeIndex) {
+		  finalScore = scoreVal * 2;
+		}
+
+		// Double Trouble logic
+		if (doubleTroubleEnabled) {
+		  const maxPossible = getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
+		  if (scoreVal === maxPossible) {
+			finalScore *= 2;
+			gameHistory.push(`DOUBLE TROUBLE 💥! ${player.name} hit the max (${scoreVal}) and scored ${finalScore}`);
+		  }
+		}
+
+		player.score += finalScore;
+
 	}
 
 
@@ -993,6 +1029,26 @@ function renderScoringButtons(challengeText) {
     buttonsArea.appendChild(btn);
   });
 }
+
+	function getMaxPossibleScoreForChallenge(challengeText) {
+	  const text = challengeText.toLowerCase();
+	  const match = challengeText.match(/\d+/);
+	  const base = match ? parseInt(match[0], 10) : null;
+
+	  if (text.includes("treble") && base >= 1 && base <= 20) return base * 9;
+	  if (text.includes("double") && base >= 1 && base <= 20) return base * 6;
+	  if (text.includes("big") || text.includes("small")) return base * 3;
+	  if (text.includes("bullseye")) return 150; // 3x 50
+	  if (text.includes("25")) return 75;  // 3x 25
+	  if (text.includes("loop")) return 210;           // 3x 70
+	  if (text.includes("61")) return 61;             // 3x 61
+	  if (text.includes("split")) return 132;
+	  if (text.includes("bow")) return 67;
+	  if (text.includes("any") && base >= 1 && base <= 20) return base * 9;
+
+	  return 0; // Default if unknown
+	}
+
 
 
   // Initial load from Firebase
