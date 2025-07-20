@@ -810,46 +810,59 @@ function startGame() {
 	}
 
   // Handle submitting score for current player/challenge
-  function submitScore() {
-    if (!gameStarted) return;
-    const val = scoreInput.value.trim();
-    if (val === "") return alert("Please enter a score");
-    let scoreVal = parseInt(val, 10);
-    if (isNaN(scoreVal) || scoreVal < 0) return alert("Score must be a non-negative number");
+		function submitScore() {
+		  if (!gameStarted) return;
+		  const val = scoreInput.value.trim();
+		  if (val === "") return alert("Please enter a score");
+		  let scoreVal = parseInt(val, 10);
+		  if (isNaN(scoreVal) || scoreVal < 0) return alert("Score must be a non-negative number");
 
-	const player = players[currentPlayerIndex];
-	const oldScore = player.score;
-	let finalScore = scoreVal;
+		  const player = players[currentPlayerIndex];
+		  const oldScore = player.score;
+		  let finalScore = scoreVal;
 
-	const isJoker = currentChallengeIndex === jokerChallengeIndex;
-	const isDoubleTrouble = doubleTroubleEnabled &&
-	  scoreVal === getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
+		  const isJoker = currentChallengeIndex === jokerChallengeIndex;
+		  const isDoubleTrouble = doubleTroubleEnabled &&
+			scoreVal === getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
 
-	if (isJoker && isDoubleTrouble) {
-	  finalScore *= 4;
-	  gameHistory.push(`🎭💥 MEGA COMBO! ${player.name} hit max score on a JOKER challenge — score QUADRUPLED to ${finalScore}!`);
-	} else if (isJoker) {
-	  finalScore *= 2;
-	  gameHistory.push(`🃏 JOKER! ${player.name} scored double points: ${finalScore}`);
-	} else if (isDoubleTrouble) {
-	  finalScore *= 2;
-	  gameHistory.push(`💥 DOUBLE TROUBLE! ${player.name} hit the max and scored ${finalScore}`);
-	}
-
-	player.score += finalScore;
-		
-	// Increment streak
-		if (streakBonusEnabled) {
-		  playerStreaks[player.name] = (playerStreaks[player.name] || 0) + 1;
-
-		  if (playerStreaks[player.name] >= 3) {
-			player.score += 20;
-			gameHistory.push(`🔥 STREAK BONUS! ${player.name} completed 3 in a row and earned +20 points`);
-			playerStreaks[player.name] = 0; // Reset streak
+		  if (isJoker && isDoubleTrouble) {
+			finalScore *= 4;
+			gameHistory.push(`🎭💥 MEGA COMBO! ${player.name} hit max score on a JOKER challenge — score QUADRUPLED to ${finalScore}!`);
+		  } else if (isJoker) {
+			finalScore *= 2;
+			gameHistory.push(`🃏 JOKER! ${player.name} scored double points: ${finalScore}`);
+		  } else if (isDoubleTrouble) {
+			finalScore *= 2;
+			gameHistory.push(`💥 DOUBLE TROUBLE! ${player.name} hit max score and doubled it: ${finalScore}`);
 		  }
-		}
 
-	}
+		  player.score += finalScore;
+
+		  // Streak Bonus logic
+		  if (streakBonusEnabled) {
+			playerStreaks[player.name] = (playerStreaks[player.name] || 0) + 1;
+			if (playerStreaks[player.name] >= 3) {
+			  player.score += 20;
+			  gameHistory.push(`🔥 STREAK BONUS! ${player.name} completed 3 in a row and earned +20 points`);
+			  playerStreaks[player.name] = 0;
+			}
+		  }
+
+		  lastActionsStack.push({
+			type: "score",
+			playerIndex: currentPlayerIndex,
+			oldScore: oldScore,
+			newScore: player.score,
+			challengeIndex: currentChallengeIndex,
+			playerName: player.name,
+			scoreAdded: scoreVal
+		  });
+
+		  gameHistory.push(`${player.name} scored ${scoreVal} on challenge "${currentGameChallenges[currentChallengeIndex].text}" (Total: ${player.score})`);
+		  saveHistoryToFirebase();
+		  renderHistory();
+		  nextTurn();
+		}
 
 
     // Save action for undo
