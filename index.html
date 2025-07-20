@@ -786,6 +786,11 @@ function startGame() {
 		}
 		challenge = pool[Math.floor(Math.random() * pool.length)];
 		currentGameChallenges[currentChallengeIndex] = challenge; // save for history
+		
+		  // 👇 Dynamically assign modifiers for this turn
+		  hardcoreChallengeIndex = Math.random() < 0.1 ? currentChallengeIndex : null; // ~10% chance
+		  jokerChallengeIndex = Math.random() < 0.1 ? currentChallengeIndex : null;
+
 	  } else {
 		challenge = currentGameChallenges[currentChallengeIndex];
 	  }
@@ -833,9 +838,16 @@ function startGame() {
 		// Double Trouble logic
 		if (doubleTroubleEnabled) {
 		  const maxPossible = getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
-		  if (scoreVal === maxPossible) {
+		  const hitMax = scoreVal === maxPossible;
+
+		  const isJokerTurn = currentChallengeIndex === jokerChallengeIndex;
+
+		  if (hitMax && isJokerTurn) {
+			finalScore *= 4; // Joker + Double Trouble = quadruple
+			gameHistory.push(`💣💥🃏 INSANE COMBO! ${player.name} hit max (${scoreVal}) on a Joker turn AND triggered Double Trouble — total score: ${finalScore}`);
+		  } else if (hitMax) {
 			finalScore *= 2;
-			gameHistory.push(`DOUBLE TROUBLE 💥! ${player.name} hit the max (${scoreVal}) and scored ${finalScore}`);
+			gameHistory.push(`💥 DOUBLE TROUBLE! ${player.name} hit max (${scoreVal}) and scored ${finalScore}`);
 		  }
 		}
 
@@ -899,6 +911,18 @@ function startGame() {
 
     
     player.score = newScore;
+	
+	let failMessage;
+
+	if (currentChallengeIndex === hardcoreChallengeIndex) {
+	  failMessage = `${player.name} FAILED a 🔥 HARDCORE challenge — score reset to 0!`;
+	} else if (currentChallengeIndex === jokerChallengeIndex) {
+	  failMessage = `${player.name} FAILED a 🃏 JOKER challenge — penalty reduced score to ${newScore}!`;
+	} else {
+	  failMessage = `${player.name} FAILED challenge "${currentGameChallenges[currentChallengeIndex].text}" and score was ${oldScore === 0 ? 'kept at 0' : 'halved to ' + newScore}`);
+	}
+
+	gameHistory.push(failMessage);
 
     lastActionsStack.push({
       type: "fail",
@@ -909,7 +933,6 @@ function startGame() {
       playerName: player.name
     });
 
-    gameHistory.push(`${player.name} FAILED challenge "${currentGameChallenges[currentChallengeIndex].text}" and score was ${oldScore === 0 ? 'kept at 0' : 'halved to ' + newScore}`);
     saveHistoryToFirebase();
     renderHistory();
 
