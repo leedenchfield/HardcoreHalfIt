@@ -819,29 +819,28 @@ function startGame() {
 
     const player = players[currentPlayerIndex];
     const oldScore = player.score;
+	
     // Check for Joker challenge
-	if (currentChallengeIndex === jokerChallengeIndex) {
-	  player.score += scoreVal * 2; // double score for this turn
-	} else {
-	  let finalScore = scoreVal;
+		let finalScore = scoreVal;
+		const challengeText = currentGameChallenges[currentChallengeIndex]?.text || "";
+		const isJoker = currentChallengeIndex === jokerChallengeIndex;
+		const isDoubleTrouble = doubleTroubleEnabled &&
+		  scoreVal === getMaxPossibleScoreForChallenge(challengeText);
 
-		// Check for Joker Mode (already handled)
-		if (currentChallengeIndex === jokerChallengeIndex) {
-		  finalScore = scoreVal * 2;
-		}
-
-		// Double Trouble logic
-		if (doubleTroubleEnabled) {
-		  const maxPossible = getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
-		  if (scoreVal === maxPossible) {
-			finalScore *= 2;
-			gameHistory.push(`DOUBLE TROUBLE 💥! ${player.name} hit the max (${scoreVal}) and scored ${finalScore}`);
-		  }
+		if (isJoker && isDoubleTrouble) {
+		  finalScore *= 4;
+		  gameHistory.push(`🎭💥 MEGA COMBO! ${player.name} hit max score on a JOKER challenge — score QUADRUPLED to ${finalScore}!`);
+		} else if (isJoker) {
+		  finalScore *= 2;
+		  gameHistory.push(`🃏 JOKER! ${player.name} scored double points: ${finalScore}`);
+		} else if (isDoubleTrouble) {
+		  finalScore *= 2;
+		  gameHistory.push(`💥 DOUBLE TROUBLE! ${player.name} hit the max and scored ${finalScore}`);
 		}
 
 		player.score += finalScore;
-		
-	// Increment streak
+
+		// Increment streak
 		if (streakBonusEnabled) {
 		  playerStreaks[player.name] = (playerStreaks[player.name] || 0) + 1;
 
@@ -852,7 +851,22 @@ function startGame() {
 		  }
 		}
 
-	}
+		// ✔ Save action for undo
+		lastActionsStack.push({
+		  type: "score",
+		  playerIndex: currentPlayerIndex,
+		  oldScore: oldScore,
+		  newScore: player.score,
+		  challengeIndex: currentChallengeIndex,
+		  playerName: player.name,
+		  scoreAdded: scoreVal
+		});
+
+		// ✔ Log to history
+		gameHistory.push(`${player.name} scored ${scoreVal} on challenge "${currentGameChallenges[currentChallengeIndex].text}" (Total: ${player.score})`);
+		saveHistoryToFirebase();
+		renderHistory();
+		nextTurn();
 
 
     // Save action for undo
