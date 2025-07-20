@@ -309,6 +309,10 @@
 		  <input type="checkbox" id="streakBonusMode" />
 		  Streak Bonus (🔥 3 successful turns = +20 points)
 		</label><br />
+		<label>
+		  <input type="checkbox" id="chaosMode" />
+		  Chaos Mode (🌀 Random challenge each turn)
+		</label><br />
 	  </div>
 	</details>
   </section>
@@ -370,6 +374,7 @@
   let doubleTroubleEnabled = false;
   let streakBonusEnabled = false;
   let playerStreaks = {};
+  let chaosModeEnabled = false;
   let categoryRequirements = {}; // tracks how many challenges per category
 
   let currentGameChallenges = []; // challenges selected for this game (unique, random)
@@ -641,6 +646,8 @@
   function startGame() {
     if (gameStarted) return alert("Game already started");
     if (selectedPlayers.size === 0) return alert("Select at least one player to start");
+	
+	chaosModeEnabled = document.getElementById("chaosMode").checked;
     
     const numChallenges = parseInt(document.getElementById("numChallenges").value, 10);
     if (isNaN(numChallenges) || numChallenges < 1) return alert("Number of challenges must be at least 1");
@@ -740,7 +747,15 @@
     }
     
     // Reconstruct: scoring first, shuffled middle, finishing last
-    currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
+	  if (chaosModeEnabled) {
+	  const allChallengePool = Object.values(allChallenges).flat(); // all challenges from all categories
+	  shuffleArray(allChallengePool);
+	  const challengeCount = Math.min(numChallenges * 2, allChallengePool.length); // double the usual challenge count
+	  currentGameChallenges = allChallengePool.slice(0, challengeCount);
+	} else {
+	  currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
+	}
+
 	
 	// Handle Hardcore and Joker modes
 	hardcoreChallengeIndex = null;
@@ -752,7 +767,8 @@
 	doubleTroubleEnabled = useDoubleTrouble;
 	const useStreakBonus = document.getElementById("streakBonusMode").checked;
 	streakBonusEnabled = useStreakBonus;
-
+	const useChaosMode = document.getElementById("chaosMode").checked;
+	chaosModeEnabled = useChaosMode;
 
 	// Get eligible challenge indexes (not first or last)
 	const eligibleIndexes = currentGameChallenges.map((_, i) => i).filter(i => i !== 0 && i !== currentGameChallenges.length - 1);
@@ -940,19 +956,33 @@
   }
 
   // Advance turn and challenge index properly
-  function nextTurn() {
-    currentPlayerIndex++;
-    if (currentPlayerIndex >= players.length) {
-      currentPlayerIndex = 0;
-      currentChallengeIndex++;
-    }
-    if (currentChallengeIndex >= currentGameChallenges.length) {
-      endGame();
-    } else {
-      updateTurnDisplay();
-    }
-    updateScoreboard();
-  }
+	function nextTurn() {
+	  currentPlayerIndex++;
+
+	  // If all players have gone this round, start next round
+	  if (currentPlayerIndex >= players.length) {
+		currentPlayerIndex = 0;
+
+		if (!chaosModeEnabled) {
+		  currentChallengeIndex++;
+		}
+	  }
+
+	  // In Chaos Mode, pick a random challenge for every turn
+	  if (chaosModeEnabled) {
+		currentChallengeIndex = Math.floor(Math.random() * currentGameChallenges.length);
+	  }
+
+	  // End the game if we've exhausted all challenges (normal mode only)
+	  if (!chaosModeEnabled && currentChallengeIndex >= currentGameChallenges.length) {
+		endGame();
+	  } else {
+		updateTurnDisplay();
+	  }
+
+	  updateScoreboard();
+	}
+
 
   // Game end logic and popup scoreboard
   function endGame() {
