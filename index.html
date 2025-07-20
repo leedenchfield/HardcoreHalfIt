@@ -271,6 +271,13 @@
     <button onclick="addCommand()">Add Challenge</button>
   </section>
 
+  <!-- Category Controls -->
+  <section id="categoryControls">
+    <h3>Challenge Categories for Game</h3>
+    <div id="categoryInputs"></div>
+    <div class="category-summary" id="categorySummary"></div>
+  </section>
+
   <!-- Game setup controls -->
   <section id="gameControls">
     <label>
@@ -302,21 +309,9 @@
 		  <input type="checkbox" id="streakBonusMode" />
 		  Streak Bonus (🔥 3 successful turns = +20 points)
 		</label><br />
-		<label>
-	    <input type="checkbox" id="chaosMode" />
-	    Enable Chaos Mode (🌀 ignore categories, pick random challenges)
-		</label><br/>
-
 	  </div>
 	</details>
   </section>
-  
-		<!-- Category Controls -->
-	  <section id="categoryControls">
-		<h3>Challenge Categories for Game</h3>
-		<div id="categoryInputs"></div>
-		<div class="category-summary" id="categorySummary"></div>
-	  </section>
 
   <button id="startGameBtn">Start Game</button>
 
@@ -653,27 +648,21 @@
     const startScore = parseInt(document.getElementById("startingScore").value, 10);
     if (isNaN(startScore) || startScore < 0) return alert("Starting score must be 0 or more");
 
-	// Validate category requirements (skip when Chaos Mode is on)
-		if (!useChaos) {
-		  const totalRequired = Object.values(categoryRequirements).reduce((sum, val) => sum + val, 0);
-		  if (totalRequired !== numChallenges) {
-			return alert(`Category totals (${totalRequired}) must equal number of challenges (${numChallenges})`);
-		  }
+    // Validate category requirements
+    const totalRequired = Object.values(categoryRequirements).reduce((sum, val) => sum + val, 0);
+    if (totalRequired !== numChallenges) {
+      return alert(`Category totals (${totalRequired}) must equal number of challenges (${numChallenges})`);
+    }
 
-		  const scoringRequired   = categoryRequirements["scoring"]  || 0;
-		  const finishingRequired = categoryRequirements["finishing"] || 0;
-		  if (scoringRequired < 1)  return alert("Must include at least 1 'scoring' challenge");
-		  if (finishingRequired < 1) return alert("Must include at least 1 'finishing' challenge");
+    // Check if we have required categories
+    const scoringRequired = categoryRequirements["scoring"] || 0;
+    const finishingRequired = categoryRequirements["finishing"] || 0;
+    
+    if (scoringRequired < 1) return alert("Must include at least 1 'scoring' challenge");
+    if (finishingRequired < 1) return alert("Must include at least 1 'finishing' challenge");
 
-		  for (const category in categoryRequirements) {
-			const req   = categoryRequirements[category];
-			const avail = commands.filter(c => c.category === category).length;
-			if (req > avail) {
-			  return alert(`Not enough ${category} challenges. Need ${req}, have ${avail}`);
-			}
-		  }
-		}
-
+    // Check availability for each category
+    for (const category in categoryRequirements) {
       const required = categoryRequirements[category];
       const available = commands.filter(c => c.category === category).length;
       if (required > available) {
@@ -706,45 +695,52 @@
 
 
     // Select challenges based on category requirements
-    // Build currentGameChallenges
-    if (useChaos) {
-      // Chaos Mode: pick numChallenges random, unique commands
-      const shuffled = [...commands];
-      shuffleArray(shuffled);
-      currentGameChallenges = shuffled.slice(0, numChallenges);
-    } else {
-      // Category Mode: your existing “first scoring, last finishing, fill by category, shuffle middle” logic
-      currentGameChallenges = [];
-
-      // 1) scoring first
-      const scoringChallenges = commands.filter(c => c.category === "scoring");
-      const firstChallenge = scoringChallenges[Math.floor(Math.random() * scoringChallenges.length)];
-      currentGameChallenges.push(firstChallenge);
-
-      // 2) finishing last
-      const finishingChallenges = commands.filter(c => c.category === "finishing");
-      const lastChallenge = finishingChallenges[Math.floor(Math.random() * finishingChallenges.length)];
-
-      // 3) fill in other categories
-      for (const category in categoryRequirements) {
-        let needed = categoryRequirements[category] || 0;
-        if (category === "scoring")   needed -= 1;
-        if (category === "finishing") needed -= 1;
-
-        const pool = commands
-          .filter(c => c.category === category && c.id !== firstChallenge.id && c.id !== lastChallenge.id);
-
+    currentGameChallenges = [];
+    
+    // First, add one scoring challenge at the start
+    const scoringChallenges = commands.filter(c => c.category === "scoring");
+    const firstChallenge = scoringChallenges[Math.floor(Math.random() * scoringChallenges.length)];
+    currentGameChallenges.push(firstChallenge);
+    
+    // Then add one finishing challenge that will be placed at the end
+    const finishingChallenges = commands.filter(c => c.category === "finishing");
+    const lastChallenge = finishingChallenges[Math.floor(Math.random() * finishingChallenges.length)];
+    
+    // Add remaining challenges by category (excluding the already selected ones)
+    for (const category in categoryRequirements) {
+      const required = categoryRequirements[category];
+      let needed = required;
+      
+      // Account for already selected challenges
+      if (category === "scoring") needed -= 1;
+      if (category === "finishing") needed -= 1;
+      
+      if (needed > 0) {
+        const availableChallenges = commands.filter(c => 
+          c.category === category && 
+          c.id !== firstChallenge.id && 
+          c.id !== lastChallenge.id
+        );
+        
+        // Randomly select the needed challenges
         for (let i = 0; i < needed; i++) {
-          const idx = Math.floor(Math.random() * pool.length);
-          currentGameChallenges.push(pool.splice(idx, 1)[0]);
+          if (availableChallenges.length > 0) {
+            const idx = Math.floor(Math.random() * availableChallenges.length);
+            currentGameChallenges.push(availableChallenges.splice(idx, 1)[0]);
+          }
         }
       }
-
-      // 4) shuffle middle and reassemble
-      const middle = currentGameChallenges.slice(1);
-      shuffleArray(middle);
-      currentGameChallenges = [firstChallenge, ...middle, lastChallenge];
     }
+    
+    // Shuffle the middle challenges (keep first as scoring, add finishing at end)
+    const middleChallenges = currentGameChallenges.slice(1);
+    for (let i = middleChallenges.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [middleChallenges[i], middleChallenges[j]] = [middleChallenges[j], middleChallenges[i]];
+    }
+    
+    // Reconstruct: scoring first, shuffled middle, finishing last
+    currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
 	
 	// Handle Hardcore and Joker modes
 	hardcoreChallengeIndex = null;
@@ -756,7 +752,6 @@
 	doubleTroubleEnabled = useDoubleTrouble;
 	const useStreakBonus = document.getElementById("streakBonusMode").checked;
 	streakBonusEnabled = useStreakBonus;
-	const useChaos       = document.getElementById("chaosMode").checked;
 
 
 	// Get eligible challenge indexes (not first or last)
@@ -993,13 +988,6 @@
   toggleCommandListBtn.addEventListener("click", () => {
     commandListDiv.style.display = commandListDiv.style.display === "none" ? "block" : "none";
   });
-  
-    document
-    .getElementById("chaosMode")
-    .addEventListener("change", e => {
-      document.getElementById("categoryControls").style.display =
-        e.target.checked ? "none" : "block";
-    });  
   
   // Update category summary when number of challenges changes
   document.getElementById("numChallenges").addEventListener("input", updateCategorySummary);
