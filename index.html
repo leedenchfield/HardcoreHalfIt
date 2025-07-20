@@ -271,13 +271,6 @@
     <button onclick="addCommand()">Add Challenge</button>
   </section>
 
-  <!-- Category Controls -->
-  <section id="categoryControls">
-    <h3>Challenge Categories for Game</h3>
-    <div id="categoryInputs"></div>
-    <div class="category-summary" id="categorySummary"></div>
-  </section>
-
   <!-- Game setup controls -->
   <section id="gameControls">
     <label>
@@ -309,8 +302,19 @@
 		  <input type="checkbox" id="streakBonusMode" />
 		  Streak Bonus (🔥 3 successful turns = +20 points)
 		</label><br />
+		<label>
+		  <input type="checkbox" id="chaosMode" />
+		  Chaos Mode (🌀 Random challenge each turn)
+		</label><br />
 	  </div>
 	</details>
+  </section>
+  
+    <!-- Category Controls -->
+  <section id="categoryControls">
+    <h3>Challenge Categories for Game</h3>
+    <div id="categoryInputs"></div>
+    <div class="category-summary" id="categorySummary"></div>
   </section>
 
   <button id="startGameBtn">Start Game</button>
@@ -370,6 +374,7 @@
   let doubleTroubleEnabled = false;
   let streakBonusEnabled = false;
   let playerStreaks = {};
+  let chaosModeEnabled = false;
   let categoryRequirements = {}; // tracks how many challenges per category
 
   let currentGameChallenges = []; // challenges selected for this game (unique, random)
@@ -648,6 +653,8 @@
     const startScore = parseInt(document.getElementById("startingScore").value, 10);
     if (isNaN(startScore) || startScore < 0) return alert("Starting score must be 0 or more");
 
+	chaosModeEnabled = document.getElementById("chaosMode").checked;
+
     // Validate category requirements
     const totalRequired = Object.values(categoryRequirements).reduce((sum, val) => sum + val, 0);
     if (totalRequired !== numChallenges) {
@@ -740,7 +747,16 @@
     }
     
     // Reconstruct: scoring first, shuffled middle, finishing last
-    currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
+	if (chaosModeEnabled) {
+	  const allChallengePool = Object.values(allChallenges).flat(); // all challenges from all categories
+	  shuffleArray(allChallengePool);
+	  const challengeCount = Math.min(numChallenges * 2, allChallengePool.length); // double the usual challenge count
+	  currentGameChallenges = allChallengePool.slice(0, challengeCount);
+	} else {
+	  currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
+	}
+
+
 	
 	// Handle Hardcore and Joker modes
 	hardcoreChallengeIndex = null;
@@ -752,6 +768,8 @@
 	doubleTroubleEnabled = useDoubleTrouble;
 	const useStreakBonus = document.getElementById("streakBonusMode").checked;
 	streakBonusEnabled = useStreakBonus;
+	const useChaosMode = document.getElementById("chaosMode").checked;
+	chaosModeEnabled = useChaosMode;
 
 
 	// Get eligible challenge indexes (not first or last)
