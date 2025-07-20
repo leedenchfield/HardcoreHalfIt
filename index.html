@@ -823,7 +823,7 @@ function startGame() {
 
 		  const isJoker = currentChallengeIndex === jokerChallengeIndex;
 		  const isDoubleTrouble = doubleTroubleEnabled &&
-			scoreVal === getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
+			scoreVal === getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex]?.text || "");
 
 		  if (isJoker && isDoubleTrouble) {
 			finalScore *= 4;
