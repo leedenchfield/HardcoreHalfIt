@@ -820,23 +820,20 @@ function startGame() {
     const player = players[currentPlayerIndex];
     const oldScore = player.score;
     // Check for Joker challenge
-	if (currentChallengeIndex === jokerChallengeIndex) {
-	  player.score += scoreVal * 2; // double score for this turn
-	} else {
-	  let finalScore = scoreVal;
+		let finalScore = scoreVal;
+		const isJoker = currentChallengeIndex === jokerChallengeIndex;
+		const isDoubleTrouble = doubleTroubleEnabled &&
+		  scoreVal === getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
 
-		// Check for Joker Mode (already handled)
-		if (currentChallengeIndex === jokerChallengeIndex) {
-		  finalScore = scoreVal * 2;
-		}
-
-		// Double Trouble logic
-		if (doubleTroubleEnabled) {
-		  const maxPossible = getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
-		  if (scoreVal === maxPossible) {
-			finalScore *= 2;
-			gameHistory.push(`DOUBLE TROUBLE 💥! ${player.name} hit the max (${scoreVal}) and scored ${finalScore}`);
-		  }
+		if (isJoker && isDoubleTrouble) {
+		  finalScore *= 4; // Joker x Double Trouble
+		  gameHistory.push(`🎭💥 MEGA COMBO! ${player.name} hit max score on a JOKER challenge — score QUADRUPLED to ${finalScore}!`);
+		} else if (isJoker) {
+		  finalScore *= 2;
+		  gameHistory.push(`🃏 JOKER! ${player.name} scored double points: ${finalScore}`);
+		} else if (isDoubleTrouble) {
+		  finalScore *= 2;
+		  gameHistory.push(`💥 DOUBLE TROUBLE! ${player.name} hit max score and doubled it: ${finalScore}`);
 		}
 
 		player.score += finalScore;
