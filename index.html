@@ -817,26 +817,26 @@ function startGame() {
     let scoreVal = parseInt(val, 10);
     if (isNaN(scoreVal) || scoreVal < 0) return alert("Score must be a non-negative number");
 
-    const player = players[currentPlayerIndex];
-    const oldScore = player.score;
-    // Check for Joker challenge
-		let finalScore = scoreVal;
-		const isJoker = currentChallengeIndex === jokerChallengeIndex;
-		const isDoubleTrouble = doubleTroubleEnabled &&
-		  scoreVal === getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
+	const player = players[currentPlayerIndex];
+	const oldScore = player.score;
+	let finalScore = scoreVal;
 
-		if (isJoker && isDoubleTrouble) {
-		  finalScore *= 4; // Joker x Double Trouble
-		  gameHistory.push(`🎭💥 MEGA COMBO! ${player.name} hit max score on a JOKER challenge — score QUADRUPLED to ${finalScore}!`);
-		} else if (isJoker) {
-		  finalScore *= 2;
-		  gameHistory.push(`🃏 JOKER! ${player.name} scored double points: ${finalScore}`);
-		} else if (isDoubleTrouble) {
-		  finalScore *= 2;
-		  gameHistory.push(`💥 DOUBLE TROUBLE! ${player.name} hit max score and doubled it: ${finalScore}`);
-		}
+	const isJoker = currentChallengeIndex === jokerChallengeIndex;
+	const isDoubleTrouble = doubleTroubleEnabled &&
+	  scoreVal === getMaxPossibleScoreForChallenge(currentGameChallenges[currentChallengeIndex].text);
 
-		player.score += finalScore;
+	if (isJoker && isDoubleTrouble) {
+	  finalScore *= 4;
+	  gameHistory.push(`🎭💥 MEGA COMBO! ${player.name} hit max score on a JOKER challenge — score QUADRUPLED to ${finalScore}!`);
+	} else if (isJoker) {
+	  finalScore *= 2;
+	  gameHistory.push(`🃏 JOKER! ${player.name} scored double points: ${finalScore}`);
+	} else if (isDoubleTrouble) {
+	  finalScore *= 2;
+	  gameHistory.push(`💥 DOUBLE TROUBLE! ${player.name} hit the max and scored ${finalScore}`);
+	}
+
+	player.score += finalScore;
 		
 	// Increment streak
 		if (streakBonusEnabled) {
