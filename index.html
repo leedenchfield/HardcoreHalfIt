@@ -643,32 +643,58 @@
 
   // --- Game logic ---
 
-  function startGame() {
-    if (gameStarted) return alert("Game already started");
-    if (selectedPlayers.size === 0) return alert("Select at least one player to start");
-    
-    const numChallenges = parseInt(document.getElementById("numChallenges").value, 10);
-    if (isNaN(numChallenges) || numChallenges < 1) return alert("Number of challenges must be at least 1");
-    
-    const startScore = parseInt(document.getElementById("startingScore").value, 10);
-    if (isNaN(startScore) || startScore < 0) return alert("Starting score must be 0 or more");
+function startGame() {
+  if (gameStarted) return alert("Game already started");
+  if (selectedPlayers.size === 0) return alert("Select at least one player to start");
 
-	chaosModeEnabled = document.getElementById("chaosMode").checked;
+  const numChallenges = parseInt(document.getElementById("numChallenges").value, 10);
+  const startScore = parseInt(document.getElementById("startingScore").value, 10);
 
-    // Validate category requirements
+  if (isNaN(startScore) || startScore < 0) return alert("Starting score must be 0 or more");
+
+  // 🌪 Chaos Mode flag and extra mode flags
+  chaosModeEnabled = document.getElementById("chaosMode").checked;
+  const useHardcore = document.getElementById("hardcoreMode").checked;
+  const useJoker = document.getElementById("jokerMode").checked;
+  doubleTroubleEnabled = document.getElementById("doubleTroubleMode").checked;
+  streakBonusEnabled = document.getElementById("streakBonusMode").checked;
+
+  // 🧼 Reset game state
+  gameStarted = true;
+  currentChallengeIndex = 0;
+  currentPlayerIndex = 0;
+  lastActionsStack = [];
+  gameHistory = [];
+
+  // 👥 Set up players
+  players = Array.from(selectedPlayers).map(name => ({ name, score: startScore }));
+  shuffleArray(players);
+
+  playerStreaks = {};
+  players.forEach(p => { playerStreaks[p.name] = 0 });
+
+  currentGameChallenges = [];
+
+  // 💣 Chaos Mode skips challenge setup
+  if (chaosModeEnabled) {
+    hardcoreChallengeIndex = null;
+    jokerChallengeIndex = null;
+    // 🔗 Set chaos turn limit to the same as user-defined number of challenges
+  chaosTurnLimit = isNaN(numChallenges) || numChallenges < 1 ? 10 : numChallenges;
+
+  } else {
+    // 📋 Validate category requirements
     const totalRequired = Object.values(categoryRequirements).reduce((sum, val) => sum + val, 0);
     if (totalRequired !== numChallenges) {
       return alert(`Category totals (${totalRequired}) must equal number of challenges (${numChallenges})`);
     }
 
-    // Check if we have required categories
     const scoringRequired = categoryRequirements["scoring"] || 0;
     const finishingRequired = categoryRequirements["finishing"] || 0;
-    
+
     if (scoringRequired < 1) return alert("Must include at least 1 'scoring' challenge");
     if (finishingRequired < 1) return alert("Must include at least 1 'finishing' challenge");
 
-    // Check availability for each category
     for (const category in categoryRequirements) {
       const required = categoryRequirements[category];
       const available = commands.filter(c => c.category === category).length;
@@ -677,155 +703,111 @@
       }
     }
 
-    // Reset game data
-    gameStarted = true;
-    currentChallengeIndex = 0;
-    currentPlayerIndex = 0;
-    lastActionsStack = [];
-    gameHistory = [];
-
-    // Filter selected players and reset scores
-	// Build a list of selected players with reset scores
-	players = Array.from(selectedPlayers).map(name => ({
-	  name,
-	  score: startScore
-	}));
-
-	// Randomize the player order
-	shuffleArray(players);
-	
-	// Initialize player streak counters
-	playerStreaks = {};
-	players.forEach(p => {
-	  playerStreaks[p.name] = 0;
-	});
-
-
-    // Select challenges based on category requirements
-    currentGameChallenges = [];
-    
-    // First, add one scoring challenge at the start
+    // 🎲 Select challenges
     const scoringChallenges = commands.filter(c => c.category === "scoring");
-    const firstChallenge = scoringChallenges[Math.floor(Math.random() * scoringChallenges.length)];
-    currentGameChallenges.push(firstChallenge);
-    
-    // Then add one finishing challenge that will be placed at the end
     const finishingChallenges = commands.filter(c => c.category === "finishing");
+
+    const firstChallenge = scoringChallenges[Math.floor(Math.random() * scoringChallenges.length)];
     const lastChallenge = finishingChallenges[Math.floor(Math.random() * finishingChallenges.length)];
-    
-    // Add remaining challenges by category (excluding the already selected ones)
+    currentGameChallenges.push(firstChallenge);
+
     for (const category in categoryRequirements) {
-      const required = categoryRequirements[category];
-      let needed = required;
-      
-      // Account for already selected challenges
-      if (category === "scoring") needed -= 1;
-      if (category === "finishing") needed -= 1;
-      
-      if (needed > 0) {
-        const availableChallenges = commands.filter(c => 
-          c.category === category && 
-          c.id !== firstChallenge.id && 
+      let required = categoryRequirements[category];
+
+      if (category === "scoring") required -= 1;
+      if (category === "finishing") required -= 1;
+
+      if (required > 0) {
+        const available = commands.filter(c =>
+          c.category === category &&
+          c.id !== firstChallenge.id &&
           c.id !== lastChallenge.id
         );
-        
-        // Randomly select the needed challenges
-        for (let i = 0; i < needed; i++) {
-          if (availableChallenges.length > 0) {
-            const idx = Math.floor(Math.random() * availableChallenges.length);
-            currentGameChallenges.push(availableChallenges.splice(idx, 1)[0]);
-          }
+
+        for (let i = 0; i < required; i++) {
+          const idx = Math.floor(Math.random() * available.length);
+          currentGameChallenges.push(available.splice(idx, 1)[0]);
         }
       }
     }
-    
-    // Shuffle the middle challenges (keep first as scoring, add finishing at end)
+
     const middleChallenges = currentGameChallenges.slice(1);
-    for (let i = middleChallenges.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [middleChallenges[i], middleChallenges[j]] = [middleChallenges[j], middleChallenges[i]];
+    shuffleArray(middleChallenges);
+    currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
+
+    // 🎭 Joker and Hardcore assignment
+    hardcoreChallengeIndex = null;
+    jokerChallengeIndex = null;
+
+    const eligibleIndexes = currentGameChallenges.map((_, i) => i).filter(i => i !== 0 && i !== currentGameChallenges.length - 1);
+
+    if (useHardcore && eligibleIndexes.length > 0) {
+      hardcoreChallengeIndex = eligibleIndexes[Math.floor(Math.random() * eligibleIndexes.length)];
     }
-    
-    // Reconstruct: scoring first, shuffled middle, finishing last
-	if (chaosModeEnabled) {
-	  const allChallengePool = Object.values(allChallenges).flat(); // all challenges from all categories
-	  shuffleArray(allChallengePool);
-	  const challengeCount = Math.min(numChallenges * 2, allChallengePool.length); // double the usual challenge count
-	  currentGameChallenges = allChallengePool.slice(0, challengeCount);
-	} else {
-	  currentGameChallenges = [firstChallenge, ...middleChallenges, lastChallenge];
-	}
 
-
-	
-	// Handle Hardcore and Joker modes
-	hardcoreChallengeIndex = null;
-	jokerChallengeIndex = null;
-
-	const useHardcore = document.getElementById("hardcoreMode").checked;
-	const useJoker = document.getElementById("jokerMode").checked;
-	const useDoubleTrouble = document.getElementById("doubleTroubleMode").checked;
-	doubleTroubleEnabled = useDoubleTrouble;
-	const useStreakBonus = document.getElementById("streakBonusMode").checked;
-	streakBonusEnabled = useStreakBonus;
-	const useChaosMode = document.getElementById("chaosMode").checked;
-	chaosModeEnabled = useChaosMode;
-
-
-	// Get eligible challenge indexes (not first or last)
-	const eligibleIndexes = currentGameChallenges.map((_, i) => i).filter(i => i !== 0 && i !== currentGameChallenges.length - 1);
-
-	// Randomly assign hardcore challenge
-	if (useHardcore && eligibleIndexes.length > 0) {
-	  const idx = Math.floor(Math.random() * eligibleIndexes.length);
-	  hardcoreChallengeIndex = eligibleIndexes[idx];
-	}
-
-	// Recompute eligible for Joker (exclude hardcore index)
-	if (useJoker && eligibleIndexes.length > 1) {
-	  const jokerEligible = eligibleIndexes.filter(i => i !== hardcoreChallengeIndex);
-	  const idx = Math.floor(Math.random() * jokerEligible.length);
-	  jokerChallengeIndex = jokerEligible[idx];
-	}
-
-    // Update UI
-    updatePlayerButtons();
-    updateScoreboard();
-    renderHistory();
-    gameArea.classList.remove("hidden");
-    updateTurnDisplay();
+    if (useJoker && eligibleIndexes.length > 1) {
+      const jokerEligible = eligibleIndexes.filter(i => i !== hardcoreChallengeIndex);
+      jokerChallengeIndex = jokerEligible[Math.floor(Math.random() * jokerEligible.length)];
+    }
   }
+
+  // 🚀 Start the game
+  updatePlayerButtons();
+  updateScoreboard();
+  renderHistory();
+  gameArea.classList.remove("hidden");
+  updateTurnDisplay();
+}
 
   // Display whose turn it is and current challenge
-  function updateTurnDisplay() {
-    if (!gameStarted) {
-      currentTurnInfo.textContent = "";
-      currentChallengeText.textContent = "";
-      return;
-    }
-    if (currentChallengeIndex >= currentGameChallenges.length) {
-      // Game over
-      endGame();
-      return;
-    }
-    const player = players[currentPlayerIndex];
-    const challenge = currentGameChallenges[currentChallengeIndex];
-	const challengeNumber = currentChallengeIndex + 1;
-	const totalChallenges = currentGameChallenges.length;
-    currentTurnInfo.textContent = `Current Turn: ${player.name}`;
-	let modifiers = [];
-	if (currentChallengeIndex === hardcoreChallengeIndex) modifiers.push("🔥 HARDCORE");
-	if (currentChallengeIndex === jokerChallengeIndex) modifiers.push("🃏 JOKER");
+	function updateTurnDisplay() {
+	  if (!gameStarted) {
+		currentTurnInfo.textContent = "";
+		currentChallengeText.textContent = "";
+		return;
+	  }
 
-	const extra = modifiers.length > 0 ? ` [${modifiers.join(" + ")}]` : "";
-	currentChallengeText.textContent = `Challenge ${challengeNumber} of ${totalChallenges}: "${challenge.text}" (${challenge.description})${extra}`;
+	  const isChaosEnd = chaosModeEnabled && currentChallengeIndex >= chaosTurnLimit;
+	  const isNormalEnd = !chaosModeEnabled && currentChallengeIndex >= currentGameChallenges.length;
 
-	renderScoringButtons(challenge.text);
-    scoreInput.value = "";
-    scoreInput.focus();
-    updatePlayerButtons();
-    updateScoreboard();
-  }
+	  if (isChaosEnd || isNormalEnd) {
+		endGame();
+		return;
+	  }
+
+	  const player = players[currentPlayerIndex];
+	  let challenge;
+
+	  if (chaosModeEnabled) {
+		const pool = [...commands];
+		if (pool.length === 0) {
+		  currentChallengeText.textContent = "⚠️ No challenges available!";
+		  return;
+		}
+		challenge = pool[Math.floor(Math.random() * pool.length)];
+		currentGameChallenges[currentChallengeIndex] = challenge; // save for history
+	  } else {
+		challenge = currentGameChallenges[currentChallengeIndex];
+	  }
+
+	  const challengeNumber = currentChallengeIndex + 1;
+	  const totalChallenges = chaosModeEnabled ? chaosTurnLimit : currentGameChallenges.length;
+
+	  const modifiers = [];
+	  if (currentChallengeIndex === hardcoreChallengeIndex) modifiers.push("🔥 HARDCORE");
+	  if (currentChallengeIndex === jokerChallengeIndex) modifiers.push("🃏 JOKER");
+
+	  const extra = modifiers.length > 0 ? ` [${modifiers.join(" + ")}]` : "";
+
+	  currentTurnInfo.textContent = `Current Turn: ${player.name}`;
+	  currentChallengeText.textContent = `Challenge ${challengeNumber} of ${totalChallenges}: "${challenge.text}" (${challenge.description})${extra}`;
+
+	  renderScoringButtons(challenge.text);
+	  scoreInput.value = "";
+	  scoreInput.focus();
+	  updatePlayerButtons();
+	  updateScoreboard();
+	}
 
   // Handle submitting score for current player/challenge
   function submitScore() {
@@ -958,19 +940,24 @@
   }
 
   // Advance turn and challenge index properly
-  function nextTurn() {
-    currentPlayerIndex++;
-    if (currentPlayerIndex >= players.length) {
-      currentPlayerIndex = 0;
-      currentChallengeIndex++;
-    }
-    if (currentChallengeIndex >= currentGameChallenges.length) {
-      endGame();
-    } else {
-      updateTurnDisplay();
-    }
-    updateScoreboard();
-  }
+	function nextTurn() {
+	  currentPlayerIndex++;
+	  if (currentPlayerIndex >= players.length) {
+		currentPlayerIndex = 0;
+		currentChallengeIndex++;
+	  }
+
+	  const isChaosEnd = chaosModeEnabled && currentChallengeIndex >= chaosTurnLimit;
+	  const isNormalEnd = !chaosModeEnabled && currentChallengeIndex >= currentGameChallenges.length;
+
+	  if (isChaosEnd || isNormalEnd) {
+		endGame();
+	  } else {
+		updateTurnDisplay();
+	  }
+
+	  updateScoreboard();
+	}
 
   // Game end logic and popup scoreboard
   function endGame() {
