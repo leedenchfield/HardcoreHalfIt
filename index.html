@@ -989,6 +989,20 @@ function startGame() {
 	  const isDark = document.body.classList.contains("dark-mode");
 	  localStorage.setItem("darkModeEnabled", isDark ? "true" : "false");
 	});
+	
+	// Toggle category section when Chaos Mode is enabled
+	const chaosModeCheckbox = document.getElementById("chaosMode");
+	const categoryControlsSection = document.getElementById("categoryControls");
+
+	chaosModeCheckbox.addEventListener("change", () => {
+	  const isChaos = chaosModeCheckbox.checked;
+	  categoryControlsSection.style.display = isChaos ? "none" : "block";
+	});
+
+// Optional: apply visibility on page load
+if (chaosModeCheckbox.checked) {
+  categoryControlsSection.style.display = "none";
+}
 
   toggleCommandListBtn.addEventListener("click", () => {
     commandListDiv.style.display = commandListDiv.style.display === "none" ? "block" : "none";
