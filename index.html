@@ -369,6 +369,7 @@
   let jokerChallengeIndex = null;
   let doubleTroubleEnabled = false;
   let streakBonusEnabled = false;
+  let playerStreaks = {};
   let categoryRequirements = {}; // tracks how many challenges per category
 
   let currentGameChallenges = []; // challenges selected for this game (unique, random)
@@ -680,6 +681,12 @@
 
 	// Randomize the player order
 	shuffleArray(players);
+	
+	// Initialize player streak counters
+	playerStreaks = {};
+	players.forEach(p => {
+	  playerStreaks[p.name] = 0;
+	});
 
 
     // Select challenges based on category requirements
