@@ -868,23 +868,6 @@ function startGame() {
 		renderHistory();
 		nextTurn();
 
-
-    // Save action for undo
-    lastActionsStack.push({
-      type: "score",
-      playerIndex: currentPlayerIndex,
-      oldScore: oldScore,
-      newScore: player.score,
-      challengeIndex: currentChallengeIndex,
-      playerName: player.name,
-      scoreAdded: scoreVal
-    });
-
-    gameHistory.push(`${player.name} scored ${scoreVal} on challenge "${currentGameChallenges[currentChallengeIndex].text}" (Total: ${player.score})`);
-    saveHistoryToFirebase();
-    renderHistory();
-
-    nextTurn();
   }
 
   // Handle fail challenge (half points rounded up, min 1, unless already 0)
