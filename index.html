@@ -569,7 +569,12 @@
       const li = document.createElement("li");
       let marker = "";
       if (gameStarted && i === currentPlayerIndex) marker = " 👉 ";
-      li.textContent = `${marker}${p.name}: ${p.score}`;
+      let streakText = "";
+		if (gameStarted && streakBonusEnabled && playerStreaks[p.name] >= 1) {
+		  streakText = ` 🔥 Streak x${playerStreaks[p.name]}`;
+		}
+	li.textContent = `${marker}${p.name}: ${p.score}${streakText}`;
+
       scoreList.appendChild(li);
     });
   }
