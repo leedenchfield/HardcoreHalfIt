@@ -368,6 +368,7 @@
   let hardcoreChallengeIndex = null;
   let jokerChallengeIndex = null;
   let doubleTroubleEnabled = false;
+  let streakBonusEnabled = false;
   let categoryRequirements = {}; // tracks how many challenges per category
 
   let currentGameChallenges = []; // challenges selected for this game (unique, random)
@@ -738,6 +739,7 @@
 	const useDoubleTrouble = document.getElementById("doubleTroubleMode").checked;
 	doubleTroubleEnabled = useDoubleTrouble;
 	const useStreakBonus = document.getElementById("streakBonusMode").checked;
+	streakBonusEnabled = useStreakBonus;
 
 
 	// Get eligible challenge indexes (not first or last)
@@ -826,6 +828,17 @@
 		}
 
 		player.score += finalScore;
+		
+	// Increment streak
+		if (streakBonusEnabled) {
+		  playerStreaks[player.name] = (playerStreaks[player.name] || 0) + 1;
+
+		  if (playerStreaks[player.name] >= 3) {
+			player.score += 20;
+			gameHistory.push(`🔥 STREAK BONUS! ${player.name} completed 3 in a row and earned +20 points`);
+			playerStreaks[player.name] = 0; // Reset streak
+		  }
+		}
 
 	}
 
@@ -852,6 +865,9 @@
   function failChallenge() {
     if (!gameStarted) return;
     const player = players[currentPlayerIndex];
+		if (streakBonusEnabled) {
+			playerStreaks[player.name] = 0;
+		}
     const oldScore = player.score;
     let newScore;
     
