@@ -874,47 +874,54 @@ function startGame() {
   }
 
   // Handle fail challenge (half points rounded up, min 1, unless already 0)
-  function failChallenge() {
-    if (!gameStarted) return;
-    const player = players[currentPlayerIndex];
-		if (streakBonusEnabled) {
-			playerStreaks[player.name] = 0;
-		}
-    const oldScore = player.score;
-    let newScore;
-    
-	if (currentChallengeIndex === hardcoreChallengeIndex) {
-	  newScore = 0;
-	} else if (currentChallengeIndex === jokerChallengeIndex) {
-	  newScore = Math.ceil(oldScore / 4);
-	  if (newScore < 1) newScore = 1;
-	} else {
-	  if (oldScore === 0) {
+	  function failChallenge() {
+	  if (!gameStarted) return;
+	  const player   = players[currentPlayerIndex];
+	  const oldScore = player.score;
+	  let newScore, message;
+
+	  // HARDCORE: wipe to zero
+	  if (currentChallengeIndex === hardcoreChallengeIndex) {
 		newScore = 0;
+		message = `🔥 ${player.name} hit a HARDCORE fail! Score reset to 0!`;
+
+	  // JOKER: quarter the score (min 1)
+	  } else if (currentChallengeIndex === jokerChallengeIndex) {
+		newScore = Math.ceil(oldScore / 4) || 1;
+		message = `🃏 ${player.name} hit the JOKER penalty! Score cut to ${newScore}!`;
+
+	  // NORMAL: half the score (min 1 unless already 0)
 	  } else {
-		newScore = Math.ceil(oldScore / 2);
-		if (newScore < 1) newScore = 1;
+		if (oldScore === 0) {
+		  newScore = 0;
+		} else {
+		  newScore = Math.max(1, Math.ceil(oldScore / 2));
+		}
+		message = `${player.name} failed and score was halved to ${newScore}.`;
 	  }
+
+	  // Reset any streak
+	  if (streakBonusEnabled) {
+		playerStreaks[player.name] = 0;
+	  }
+
+	  // Apply and record
+	  player.score = newScore;
+	  lastActionsStack.push({
+		type: "fail",
+		playerIndex: currentPlayerIndex,
+		oldScore,
+		newScore,
+		challengeIndex: currentChallengeIndex
+	  });
+
+	  // Push the custom message into history
+	  gameHistory.push(message);
+	  saveHistoryToFirebase();
+	  renderHistory();
+
+	  nextTurn();
 	}
-
-    
-    player.score = newScore;
-
-    lastActionsStack.push({
-      type: "fail",
-      playerIndex: currentPlayerIndex,
-      oldScore: oldScore,
-      newScore: newScore,
-      challengeIndex: currentChallengeIndex,
-      playerName: player.name
-    });
-
-    gameHistory.push(`${player.name} FAILED challenge "${currentGameChallenges[currentChallengeIndex].text}" and score was ${oldScore === 0 ? 'kept at 0' : 'halved to ' + newScore}`);
-    saveHistoryToFirebase();
-    renderHistory();
-
-    nextTurn();
-  }
 
   // Undo last action
   function undoLastAction() {
